@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/eink_service.dart';
+import '../services/gesture_service.dart';
 import '../services/tts_service.dart';
 import '../widgets/lesson_button.dart';
 import '../utils/ui_helpers.dart';
@@ -166,6 +167,25 @@ class _LessonScreenState extends State<LessonScreen> {
     setState(() => _completedLessons.add(lesson.title));
   }
 
+  Future<void> _spinRobotCelebration() async {
+    try {
+      final res = await ApiService.move(
+        leftSpeed: 180,
+        rightSpeed: -180,
+        durationMs: 3000,
+      );
+
+      if (!mounted) return;
+      if (res.statusCode != 200) {
+        UiHelpers.showError(context, 'Robot spin failed: ${res.statusCode}');
+      }
+    } catch (e) {
+      if (mounted) {
+        UiHelpers.showError(context, 'Robot spin error: $e');
+      }
+    }
+  }
+
   Future<void> _updateEInkDisplay(BuildContext context, String imageAssetPath) async {
     try {
       final base64Image = await EinkService.convertAssetToBase64(imageAssetPath);
@@ -187,9 +207,15 @@ class _LessonScreenState extends State<LessonScreen> {
   void _startLesson({required BuildContext context, required _LessonItem lesson}) {
     if (_isCompleted(lesson)) return;
 
+    final gestureService = GestureService();
+    StreamSubscription<GestureChoice>? gestureSubscription;
+
     int? selectedIndex;
+    int? childSelectedIndex;
     String feedback = '';
+    String childMessage = 'Waiting for child gesture...';
     bool answered = false;
+    bool gestureStarted = false;
 
     showDialog(
       context: context,
@@ -197,6 +223,32 @@ class _LessonScreenState extends State<LessonScreen> {
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
           builder: (BuildContext ctx, StateSetter setState) {
+            if (!gestureStarted) {
+              gestureStarted = true;
+
+              unawaited(() async {
+                try {
+                  await gestureService.connect();
+                  gestureSubscription = gestureService.choices.listen((choice) {
+                    if (!ctx.mounted || answered) return;
+                    if (choice.optionIndex >= lesson.options.length) return;
+
+                    if (childSelectedIndex != choice.optionIndex) {
+                      setState(() {
+                        childSelectedIndex = choice.optionIndex;
+                        childMessage = 'Your child has chosen option ${choice.optionLabel}.';
+                      });
+                      UiHelpers.showSuccess(context, childMessage);
+                    }
+                  });
+                } catch (e) {
+                  if (ctx.mounted) {
+                    setState(() => childMessage = 'Gesture stream unavailable: $e');
+                  }
+                }
+              }());
+            }
+
             void submitAnswer() {
               if (selectedIndex == null) return;
               final isCorrect = selectedIndex == lesson.correctIndex;
@@ -215,6 +267,7 @@ class _LessonScreenState extends State<LessonScreen> {
 
               if (isCorrect) {
                 _markCompleted(lesson);
+                unawaited(_spinRobotCelebration());
               }
 
               // Close on both correct and wrong answers after a short delay.
@@ -240,17 +293,39 @@ class _LessonScreenState extends State<LessonScreen> {
                       const Divider(height: 40, thickness: 2),
                       Text(lesson.question, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 16),
-                      ...lesson.options.asMap().entries.map((entry) {
-                        int idx = entry.key;
-                        String opt = entry.value;
-                        return RadioListTile<int>(
-                          title: Text(opt, style: const TextStyle(fontSize: 18)),
-                          value: idx,
-                          groupValue: selectedIndex,
-                          activeColor: Colors.blueAccent,
-                          onChanged: answered ? null : (value) => setState(() => selectedIndex = value),
-                        );
-                      }),
+                      Text(
+                        childMessage,
+                        style: const TextStyle(fontSize: 14, color: Colors.grey),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      if (childSelectedIndex != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            'Child selected: ${lesson.options[childSelectedIndex!]}',
+                            style: const TextStyle(fontSize: 14, color: Colors.lightBlueAccent),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      RadioGroup<int>(
+                        groupValue: selectedIndex,
+                        onChanged: (value) {
+                          if (answered) return;
+                          setState(() => selectedIndex = value);
+                        },
+                        child: Column(
+                          children: lesson.options.asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final opt = entry.value;
+                            return RadioListTile<int>(
+                              title: Text(opt, style: const TextStyle(fontSize: 18)),
+                              value: idx,
+                              activeColor: Colors.blueAccent,
+                            );
+                          }).toList(),
+                        ),
+                      ),
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.check_circle),
@@ -280,7 +355,10 @@ class _LessonScreenState extends State<LessonScreen> {
           },
         );
       },
-    );
+    ).whenComplete(() async {
+      await gestureSubscription?.cancel();
+      await gestureService.dispose();
+    });
 
     // Fire-and-forget guidance so dialog appears immediately.
     unawaited(TTSService.speak(lesson.introTts));
