@@ -2,6 +2,7 @@ name: wonderball_app
 description: "WonderBall - Spherical Robot Prototype for Child Monitoring & Entertaining STEM Education"
 publish_to: 'none'
 version: 0.1.0+1
+homepage: https://github.com/AnaOnTram/Spherical_STEM_Robot
 
 environment:
   sdk: ^3.11.1
