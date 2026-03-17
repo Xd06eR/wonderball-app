@@ -38,7 +38,7 @@ class ApiService {
         .timeout(timeout);
   }
 
-  /// General health check (recommended in API.md)
+  /// General health check
   static Future<bool> checkConnection() async {
     try {
       final res = await _get('/api/status', timeout: const Duration(seconds: 3));
@@ -48,7 +48,7 @@ class ApiService {
     }
   }
 
-  // ── Movement (exact match to API.md) ──
+  // ── Movement ──
   static Future<http.Response> move({
     required int leftSpeed,
     required int rightSpeed,
@@ -83,7 +83,7 @@ class ApiService {
     return res.bodyBytes;
   }
 
-  // ── Alarm (cry detection) ──
+  // ── Alarm (cry / sound detection) ──
   static Future<http.Response> enableAlarm() async =>
       _post('/api/alarm/enable');
 

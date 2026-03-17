@@ -4,7 +4,6 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:image/image.dart' as img;
 
 /// Dedicated service for E-ink display.
-/// Now sends 8-bit grayscale (supports light grey, dark grey, etc.) instead of 1-bit.
 class EinkService {
   /// Converts asset image to 8-bit grayscale base64 for /api/display/update
   static Future<String> convertAssetToBase64(String assetPath) async {

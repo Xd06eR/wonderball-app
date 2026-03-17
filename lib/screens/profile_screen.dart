@@ -48,7 +48,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 40),
             const Text(
-              'Keep answering MCQs to earn more points!\n答啱每題加10分！',
+              'Keep answering MCQs to earn more points!\n答啱可以賺更多分數㗎！',
               style: TextStyle(fontSize: 18, color: Colors.grey),
               textAlign: TextAlign.center,
             ),

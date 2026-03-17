@@ -63,7 +63,7 @@ class _CameraScreenState extends State<CameraScreen> {
               : _frameBytes == null
                   ? const Center(child: CircularProgressIndicator())
                   : Transform.rotate(
-                      angle: 3 * math.pi, // camera is mounted upside-down
+                      angle: 3 * math.pi,
                       child: Image.memory(
                         _frameBytes!,
                         fit: BoxFit.contain,
@@ -73,7 +73,7 @@ class _CameraScreenState extends State<CameraScreen> {
         ),
         const Padding(
           padding: EdgeInsets.all(16),
-          child: Text('Live camera (720p MJPEG snapshot)'),
+          child: Text('Live camera'),
         ),
       ],
     );

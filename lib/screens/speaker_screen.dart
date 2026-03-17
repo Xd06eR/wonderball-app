@@ -85,24 +85,18 @@ class _SpeakerScreenState extends State<SpeakerScreen> {
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Pure API mode (Google TTS + robot playback)',
-              style: TextStyle(color: Colors.grey, fontSize: 14),
-              textAlign: TextAlign.center,
-            ),
             const SizedBox(height: 32),
 
             // Fixed phrases
             _buildPhraseButton(
-              label: '你好！我係WonderBall！',
+              label: '你好！我係WonderBall！好開心見到你。',
               phrase: '你好！我係WonderBall！好開心見到你。',
               icon: Icons.record_voice_over,
             ),
             const SizedBox(height: 12),
             _buildPhraseButton(
-              label: '做得好！你好叻！',
-              phrase: '做得好！你好叻啊！繼續努力！',
+              label: '做得好！你好叻呀！繼續努力啦！',
+              phrase: '做得好！你好叻呀！繼續努力啦！',
               icon: Icons.child_care,
             ),
             const SizedBox(height: 12),
@@ -112,7 +106,7 @@ class _SpeakerScreenState extends State<SpeakerScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: TextField(
                 decoration: const InputDecoration(
-                  labelText: '輸入想講嘅粵語',
+                  labelText: '輸入想講嘅說話 (Enter what WonderBall should say)',
                   border: OutlineInputBorder(),
                 ),
                 onSubmitted: (text) =>
@@ -124,7 +118,7 @@ class _SpeakerScreenState extends State<SpeakerScreen> {
             const Divider(),
             const SizedBox(height: 20),
 
-            // Live microphone listening (unchanged)
+            // Live microphone listening
             const Text(
               'Live Audio from Robot',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -138,19 +132,20 @@ class _SpeakerScreenState extends State<SpeakerScreen> {
             ),
             const SizedBox(height: 24),
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 12,
+              runSpacing: 12,
               children: [
                 ElevatedButton.icon(
                   icon: const Icon(Icons.play_arrow),
-                  label: const Text('開始收聽'),
+                  label: const Text('Start (開始)'),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                   onPressed: _isListening ? null : _startListening,
                 ),
-                const SizedBox(width: 24),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.stop),
-                  label: const Text('停止收聽'),
+                  label: const Text('Stop (停止)'),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                   onPressed: _isListening ? _stopListening : null,
                 ),
@@ -159,7 +154,7 @@ class _SpeakerScreenState extends State<SpeakerScreen> {
 
             const SizedBox(height: 16),
             Text(
-              _isListening ? '正在收聽機械人麥克風 (48kHz WAV 串流)' : '按「開始收聽」聽機械人聲音',
+              _isListening ? 'Listening to robot microphone...\n正在收聽機械人咪高峰' : 'Press Start to listen to the robot\n按「開始」聽機械人聲音',
               style: const TextStyle(fontSize: 14, color: Colors.grey),
               textAlign: TextAlign.center,
             ),
@@ -167,7 +162,7 @@ class _SpeakerScreenState extends State<SpeakerScreen> {
             const SizedBox(height: 20),
             ElevatedButton.icon(
               icon: const Icon(Icons.volume_off),
-              label: const Text('Stop All Audio on Robot'),
+              label: const Text('Stop All Audio (停播所有聲音)'),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
               onPressed: _stopAllAudio,
             ),

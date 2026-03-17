@@ -143,7 +143,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
           children: [
             const Icon(Icons.hearing, size: 120, color: Colors.blueAccent),
             const SizedBox(height: 24),
-            const Text('Cry / Sound Detection & Monitoring', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const Text('Cry / Sound Detection', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 32),
 
             Card(

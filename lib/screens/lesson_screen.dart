@@ -135,7 +135,7 @@ class LessonScreen extends StatefulWidget {
       title: 'Math 數學',
       lessons: [
         _LessonItem(
-          title: 'Lesson 1: Triangle 三角形呀',
+          title: 'Lesson 1: Triangle 三角形',
           introTts: _defaultIntroTts,
           lessonText: '三角形有三條邊同三個角！好似pizza或者屋頂咁，都係三角形嚟㗎！',
           imageAssetPath: 'assets/images/lesson_math_triangle.png',
