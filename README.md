@@ -47,7 +47,9 @@ Backend responsibilities (robot control, detection, event streaming, and LLM/aud
   - Lesson image push to e-ink display (`/api/display/update`)
   - Child gesture event intake via WebSocket (`/ws`, `gesture_detected`)
   - Gesture fallback polling (`/api/gesture/status`) for robustness
+  - Robust gesture normalization for labels (for example: `victory`, `open palm`, `option_a`) and duplicate-event filtering
   - Backend quiz session lifecycle (`/api/quiz/start`, `/api/quiz/stop`)
+  - Lesson dialog shows child-detected option and raw gesture payload for debugging transparency
   - Parent-confirmed answer submission
   - Score update and completion lock after a correct answer
   - Robot spin reward after a correct answer

@@ -248,6 +248,7 @@ class _LessonScreenState extends State<LessonScreen> {
 
     int? selectedIndex;
     int? childSelectedIndex;
+    String? childRawGesture;
     String feedback = '';
     String childMessage = 'Waiting for child gesture...';
     bool answered = false;
@@ -273,7 +274,9 @@ class _LessonScreenState extends State<LessonScreen> {
                     if (childSelectedIndex != choice.optionIndex) {
                       setState(() {
                         childSelectedIndex = choice.optionIndex;
-                        childMessage = 'Your child has chosen option ${choice.optionLabel}.';
+                        childRawGesture = choice.rawGesture;
+                        childMessage = 'Child gesture detected: option ${choice.optionLabel}.';
+                        selectedIndex ??= choice.optionIndex;
                       });
                       UiHelpers.showSuccess(context, childMessage);
                     }
@@ -339,10 +342,20 @@ class _LessonScreenState extends State<LessonScreen> {
                       if (childSelectedIndex != null)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(
-                            'Child selected: ${lesson.options[childSelectedIndex!]}',
-                            style: const TextStyle(fontSize: 14, color: Colors.lightBlueAccent),
-                            textAlign: TextAlign.center,
+                          child: Column(
+                            children: [
+                              Text(
+                                'Child selected: ${lesson.options[childSelectedIndex!]}',
+                                style: const TextStyle(fontSize: 14, color: Colors.lightBlueAccent),
+                                textAlign: TextAlign.center,
+                              ),
+                              if (childRawGesture != null)
+                                Text(
+                                  'Raw gesture: $childRawGesture',
+                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                  textAlign: TextAlign.center,
+                                ),
+                            ],
                           ),
                         ),
                       RadioGroup<int>(
