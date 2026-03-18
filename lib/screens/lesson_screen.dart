@@ -232,6 +232,14 @@ class _LessonScreenState extends State<LessonScreen> {
     }
   }
 
+  Future<void> _speakLessonStartScript(_LessonItem lesson) async {
+    await TTSService.speak(lesson.introTts, context: context);
+    if (!mounted) return;
+    await TTSService.speak(lesson.lessonText, context: context);
+    if (!mounted) return;
+    await TTSService.speak('${lesson.question} 請選擇正確答案！', context: context);
+  }
+
   void _startLesson({required BuildContext context, required _LessonItem lesson}) {
     if (_isCompleted(lesson)) return;
 
@@ -286,11 +294,11 @@ class _LessonScreenState extends State<LessonScreen> {
                 answered = true;
                 if (isCorrect) {
                   feedback = '啱啦！好叻！加10分！';
-                  unawaited(TTSService.speak('啱啦！好叻！加10分！'));
+                  unawaited(TTSService.speak('啱啦！好叻！加10分！', context: context));
                   widget.onAddPoints(10);
                 } else {
                   feedback = '唔啱！正確答案係 ${lesson.options[lesson.correctIndex]}';
-                  unawaited(TTSService.speak(feedback));
+                  unawaited(TTSService.speak(feedback, context: context));
                 }
               });
 
@@ -391,8 +399,7 @@ class _LessonScreenState extends State<LessonScreen> {
     });
 
     // Fire-and-forget guidance so dialog appears immediately.
-    unawaited(TTSService.speak(lesson.introTts));
-    unawaited(TTSService.speak('${lesson.question} 請選擇正確答案！'));
+    unawaited(_speakLessonStartScript(lesson));
     _updateEInkDisplay(context, lesson.imageAssetPath);
   }
 

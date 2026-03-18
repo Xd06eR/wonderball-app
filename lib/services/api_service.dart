@@ -78,6 +78,19 @@ class ApiService {
   }) async =>
       _postJson('/api/tts/speak', {'text': text, 'voice': voice});
 
+  static Future<Map<String, dynamic>> getAudioPlaybackStatus() async {
+    final res = await _get('/api/audio/playback-status');
+    if (res.statusCode != 200) {
+      throw Exception('Audio playback status failed: ${res.statusCode}');
+    }
+
+    final data = json.decode(res.body);
+    if (data is! Map<String, dynamic>) {
+      throw const FormatException('Invalid playback status payload');
+    }
+    return data;
+  }
+
   static Future<http.Response> updateDisplay(String base64Image) async =>
       _postJson('/api/display/update', {'image_base64': base64Image});
 

@@ -11,6 +11,7 @@ import 'api_service.dart';
 /// Fallback path: Google TTS bytes + `/api/audio/play-base64`.
 class TTSService {
   static const String _hkVoice = 'zh-HK-HiuGaaiNeural';
+  static Future<void> _queue = Future<void>.value();
 
   static Future<http.Response> _sendRobotAudio(List<int> mp3Bytes) {
     return http
@@ -30,8 +31,33 @@ class TTSService {
     return response.statusCode == 200;
   }
 
-  /// Speaks any text on the robot using Hong Kong Cantonese.
-  static Future<void> speak(String text, {BuildContext? context}) async {
+  static Future<void> _waitForPlaybackCompletion({
+    Duration maxWait = const Duration(seconds: 20),
+  }) async {
+    final deadline = DateTime.now().add(maxWait);
+    var seenPlaying = false;
+
+    while (DateTime.now().isBefore(deadline)) {
+      try {
+        final status = await ApiService.getAudioPlaybackStatus();
+        final isPlaying = status['is_playing'] == true;
+
+        if (isPlaying) {
+          seenPlaying = true;
+        }
+
+        if (seenPlaying && !isPlaying) {
+          return;
+        }
+      } catch (_) {
+        // Continue polling until timeout; some deployments may not expose status.
+      }
+
+      await Future.delayed(const Duration(milliseconds: 250));
+    }
+  }
+
+  static Future<void> _speakInternal(String text, {BuildContext? context}) async {
     final uiContext = context;
     if (text.trim().isEmpty) return;
 
@@ -40,6 +66,7 @@ class TTSService {
       final backendOk = await _speakWithBackend(text);
       if (uiContext != null && !uiContext.mounted) return;
       if (backendOk) {
+        await _waitForPlaybackCompletion();
         debugPrint('Robot spoke (Edge TTS, $_hkVoice): $text');
         return;
       }
@@ -62,6 +89,7 @@ class TTSService {
       if (uiContext != null && !uiContext.mounted) return;
 
       if (robotResponse.statusCode == 200) {
+        await _waitForPlaybackCompletion();
         debugPrint('Robot spoke (fallback zh-HK): $text');
       } else {
         _showError('Robot play failed: ${robotResponse.statusCode}', uiContext);
@@ -70,6 +98,15 @@ class TTSService {
       if (uiContext != null && !uiContext.mounted) return;
       _showError('Speak error: $e', uiContext);
     }
+  }
+
+  /// Speaks any text on the robot using Hong Kong Cantonese.
+  static Future<void> speak(String text, {BuildContext? context}) async {
+    _queue = _queue.then((_) async {
+      if (context != null && !context.mounted) return;
+      await _speakInternal(text, context: context);
+    });
+    return _queue;
   }
 
   static void _showError(String message, BuildContext? context) {
