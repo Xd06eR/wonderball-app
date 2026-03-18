@@ -18,6 +18,9 @@ class GestureChoice {
 class GestureService {
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
+  Timer? _pollTimer;
+  String? _lastGestureTimestamp;
+  int? _lastFingerCount;
   final StreamController<GestureChoice> _choicesController = StreamController<GestureChoice>.broadcast();
 
   Stream<GestureChoice> get choices => _choicesController.stream;
@@ -41,6 +44,48 @@ class GestureService {
       'type': 'subscribe',
       'events': ['gesture_detected'],
     }));
+
+    // Fallback/debug channel from REST to keep child-choice updates flowing
+    // even when WebSocket payloads are sparse.
+    _startGesturePolling();
+  }
+
+  void _startGesturePolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(milliseconds: 900), (_) async {
+      try {
+        final status = await ApiService.getGestureStatus();
+        _handleGestureStatus(status);
+      } catch (_) {
+        // Keep polling silently; WebSocket may still provide events.
+      }
+    });
+  }
+
+  void _handleGestureStatus(Map<String, dynamic> status) {
+    if (_choicesController.isClosed) return;
+
+    final handUp = status['hand_up'];
+    if (handUp is bool && !handUp) return;
+
+    final fingerCount = _toInt(status['finger_count']);
+    final optionIndex = _mapFingerCountToOptionIndex(fingerCount);
+    if (optionIndex == null) return;
+
+    final timestamp = status['timestamp']?.toString();
+    if (timestamp != null && timestamp == _lastGestureTimestamp && fingerCount == _lastFingerCount) {
+      return;
+    }
+
+    _lastGestureTimestamp = timestamp;
+    _lastFingerCount = fingerCount;
+
+    _choicesController.add(
+      GestureChoice(
+        optionIndex: optionIndex,
+        rawGesture: 'finger_count:$fingerCount',
+      ),
+    );
   }
 
   void _handleIncoming(dynamic payload) {
@@ -55,6 +100,17 @@ class GestureService {
     final data = decoded['data'];
     if (data is! Map<String, dynamic>) return;
 
+    final optionFromFingerCount = _mapFingerCountToOptionIndex(_toInt(data['finger_count']));
+    if (optionFromFingerCount != null) {
+      _choicesController.add(
+        GestureChoice(
+          optionIndex: optionFromFingerCount,
+          rawGesture: 'finger_count:${data['finger_count']}',
+        ),
+      );
+      return;
+    }
+
     final gestureValue = data['gesture'] ?? data['option'] ?? data['label'];
     final optionIndex = _mapGestureToOptionIndex(gestureValue?.toString());
     if (optionIndex == null) return;
@@ -67,10 +123,19 @@ class GestureService {
     );
   }
 
+  int? _mapFingerCountToOptionIndex(int? fingerCount) {
+    if (fingerCount == null || fingerCount < 1 || fingerCount > 4) return null;
+    return fingerCount - 1;
+  }
+
   int? _mapGestureToOptionIndex(String? raw) {
     if (raw == null || raw.isEmpty) return null;
 
     final normalized = raw.trim().toUpperCase().replaceAll(' ', '').replaceAll('-', '_');
+
+    final numeric = int.tryParse(normalized);
+    final optionFromFingerCount = _mapFingerCountToOptionIndex(numeric);
+    if (optionFromFingerCount != null) return optionFromFingerCount;
 
     const mapping = <String, int>{
       'A': 0,
@@ -81,6 +146,8 @@ class GestureService {
       'OPTION_B': 1,
       'TWO': 1,
       '2': 1,
+      'VICTORY': 1,
+      'PEACE': 1,
       'C': 2,
       'OPTION_C': 2,
       'THREE': 2,
@@ -94,7 +161,17 @@ class GestureService {
     return mapping[normalized];
   }
 
+  int? _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
   Future<void> dispose() async {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+
     await _subscription?.cancel();
     _subscription = null;
 

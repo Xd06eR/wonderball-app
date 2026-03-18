@@ -72,6 +72,12 @@ class ApiService {
   static Future<http.Response> stopAudio() async =>
       _post('/api/audio/stop');
 
+  static Future<http.Response> speakTts({
+    required String text,
+    String voice = 'zh-HK-HiuGaaiNeural',
+  }) async =>
+      _postJson('/api/tts/speak', {'text': text, 'voice': voice});
+
   static Future<http.Response> updateDisplay(String base64Image) async =>
       _postJson('/api/display/update', {'image_base64': base64Image});
 
@@ -81,6 +87,63 @@ class ApiService {
       throw Exception('Snapshot fetch failed: ${res.statusCode}');
     }
     return res.bodyBytes;
+  }
+
+  // ── STEM quiz & gesture ──
+  static Future<http.Response> startQuiz({
+    required String question,
+    required List<String> options,
+    required int correctIndex,
+    String title = 'WonderBall STEM',
+    String voice = 'zh-HK-HiuGaaiNeural',
+    bool shuffle = false,
+    double resultDelay = 2.5,
+  }) async {
+    return _postJson(
+      '/api/quiz/start',
+      {
+        'voice': voice,
+        'shuffle': shuffle,
+        'result_delay': resultDelay,
+        'questions': [
+          {
+            'question': question,
+            'options': options,
+            'correct_index': correctIndex,
+            'title': title,
+          }
+        ],
+      },
+    );
+  }
+
+  static Future<Map<String, dynamic>> getQuizStatus() async {
+    final res = await _get('/api/quiz/status');
+    if (res.statusCode != 200) {
+      throw Exception('Quiz status failed: ${res.statusCode}');
+    }
+
+    final data = json.decode(res.body);
+    if (data is! Map<String, dynamic>) {
+      throw const FormatException('Invalid quiz status payload');
+    }
+    return data;
+  }
+
+  static Future<http.Response> stopQuiz() async =>
+      _post('/api/quiz/stop');
+
+  static Future<Map<String, dynamic>> getGestureStatus() async {
+    final res = await _get('/api/gesture/status');
+    if (res.statusCode != 200) {
+      throw Exception('Gesture status failed: ${res.statusCode}');
+    }
+
+    final data = json.decode(res.body);
+    if (data is! Map<String, dynamic>) {
+      throw const FormatException('Invalid gesture status payload');
+    }
+    return data;
   }
 
   // ── Alarm (cry / sound detection) ──

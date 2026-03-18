@@ -26,6 +26,7 @@ Current prototype lesson workflow:
 - Child gestures are used to select lesson options.
 - The parent confirms the final answer in the app.
 - Correct, parent-confirmed answers award points and trigger a robot spin celebration.
+- Quiz voice is configured to Hong Kong Cantonese (Edge TTS).
 
 ## Scope of This Repository
 
@@ -39,11 +40,14 @@ Backend responsibilities (robot control, detection, event streaming, and LLM/aud
 - Movement control (`/api/movement/move`, `/api/movement/stop`)
 - Camera snapshot preview (`/api/stream/snapshot`)
 - Audio playback to robot (`/api/audio/play-base64`, `/api/audio/stop`)
+- Server-side TTS playback (`/api/tts/speak`, HK default voice: `zh-HK-HiuGaaiNeural`)
 - Alarm monitor controls (`/api/alarm/status`, `enable`, `disable`, `acknowledge`)
 - In-app alarm trigger notice for `confirmed` and `alarming` states
 - STEM lesson flow including:
   - Lesson image push to e-ink display (`/api/display/update`)
   - Child gesture event intake via WebSocket (`/ws`, `gesture_detected`)
+  - Gesture fallback polling (`/api/gesture/status`) for robustness
+  - Backend quiz session lifecycle (`/api/quiz/start`, `/api/quiz/stop`)
   - Parent-confirmed answer submission
   - Score update and completion lock after a correct answer
   - Robot spin reward after a correct answer
@@ -67,6 +71,8 @@ Important contract details used by this app:
 - REST base URL: `http://<raspberry-pi-ip>:8000`
 - WebSocket URL: `ws://<raspberry-pi-ip>:8000/ws`
 - Gesture event: `gesture_detected`
+- Gesture answer mapping: `1->A`, `2->B`, `3->C`, `4->D`
+- Quiz voice options include `zh-HK-HiuGaaiNeural` and `zh-HK-WanLungNeural`
 - Alarm states: `idle`, `detecting`, `confirmed`, `alarming`, `cooldown`, `disabled`
 
 ## Setup (Flutter App)
@@ -110,16 +116,9 @@ From `pubspec.yaml`:
 ## Prototype Limitations
 
 - Lesson progress is currently in memory and resets when the app restarts.
-- Gesture-to-option mapping uses normalized labels and may require backend-specific tuning.
+- Gesture recognition quality still depends on camera angle, lighting, and hand visibility.
+- TTS uses backend Edge TTS first; if unavailable, app falls back to Google TTS + `/api/audio/play-base64`.
 - Alarm notifications are currently in-app only (alert sound + dialog), not OS push notifications.
-
-## Roadmap
-
-- Persist lesson progress and parent session history
-- Add authenticated user accounts and remote access control
-- Improve gesture confidence handling and fallback UX
-- Add richer parent dashboards and activity analytics
-- Add integration tests for API and lesson workflows
 
 ## Acknowledgements
 

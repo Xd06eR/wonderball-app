@@ -186,6 +186,34 @@ class _LessonScreenState extends State<LessonScreen> {
     }
   }
 
+  Future<void> _startBackendQuizSession(BuildContext context, _LessonItem lesson) async {
+    try {
+      final response = await ApiService.startQuiz(
+        question: lesson.question,
+        options: lesson.options,
+        correctIndex: lesson.correctIndex,
+        title: lesson.title,
+      );
+
+      if (!context.mounted) return;
+      if (response.statusCode != 200) {
+        UiHelpers.showError(context, 'Quiz start failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        UiHelpers.showError(context, 'Quiz start error: $e');
+      }
+    }
+  }
+
+  Future<void> _stopBackendQuizSession() async {
+    try {
+      await ApiService.stopQuiz();
+    } catch (_) {
+      // Best-effort cleanup.
+    }
+  }
+
   Future<void> _updateEInkDisplay(BuildContext context, String imageAssetPath) async {
     try {
       final base64Image = await EinkService.convertAssetToBase64(imageAssetPath);
@@ -228,6 +256,7 @@ class _LessonScreenState extends State<LessonScreen> {
 
               unawaited(() async {
                 try {
+                  await _startBackendQuizSession(ctx, lesson);
                   await gestureService.connect();
                   gestureSubscription = gestureService.choices.listen((choice) {
                     if (!ctx.mounted || answered) return;
@@ -358,6 +387,7 @@ class _LessonScreenState extends State<LessonScreen> {
     ).whenComplete(() async {
       await gestureSubscription?.cancel();
       await gestureService.dispose();
+      await _stopBackendQuizSession();
     });
 
     // Fire-and-forget guidance so dialog appears immediately.
