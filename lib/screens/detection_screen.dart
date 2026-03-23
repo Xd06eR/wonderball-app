@@ -18,17 +18,23 @@ class _DetectionScreenState extends State<DetectionScreen> {
   bool _isLoading = false;
   Timer? _statusTimer;
   String? _lastState;
+  bool _isDialogOpen = false;
 
   bool _isAlarmState(String state) => state == 'confirmed' || state == 'alarming';
 
   Future<void> _notifyAlarmTriggered(String state) async {
-    if (!mounted) return;
+    if (!mounted || _isDialogOpen) return;
 
-    // System alert sound works on Android without dangerous runtime permission.
+    _isDialogOpen = true;
+
+    // System alert sound (Android-safe).
     await SystemSound.play(SystemSoundType.alert);
-    if (!mounted) return;
+    if (!mounted) {
+      _isDialogOpen = false;
+      return;
+    }
 
-    showDialog<void>(
+    await showDialog<void>(
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) {
@@ -44,6 +50,8 @@ class _DetectionScreenState extends State<DetectionScreen> {
         );
       },
     );
+
+    _isDialogOpen = false;
   }
 
   Future<void> _runAlarmAction({
@@ -76,7 +84,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
   void initState() {
     super.initState();
     _fetchAlarmStatus();
-    _statusTimer = Timer.periodic(const Duration(seconds: 5), (_) => _fetchAlarmStatus());
+    _statusTimer = Timer.periodic(const Duration(seconds: 2), (_) => _fetchAlarmStatus());
   }
 
   @override
@@ -90,16 +98,18 @@ class _DetectionScreenState extends State<DetectionScreen> {
       final status = await ApiService.getAlarmStatus();
       if (!mounted) return;
 
-      final stateChanged = status.state != _lastState;
-      final shouldNotify = stateChanged && _isAlarmState(status.state);
+      final previousState = _lastState;
+      final nextState = status.state;
+      final stateChanged = previousState != nextState;
+      final shouldNotify = stateChanged && _isAlarmState(nextState);
 
       setState(() {
         _alarmStatus = status;
-        _lastState = status.state;
+        _lastState = nextState;
       });
 
       if (shouldNotify) {
-        await _notifyAlarmTriggered(status.state);
+        await _notifyAlarmTriggered(nextState);
       }
     } catch (e) {
       if (mounted) {
@@ -145,21 +155,27 @@ class _DetectionScreenState extends State<DetectionScreen> {
             const SizedBox(height: 24),
             const Text('Cry / Sound Detection', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 32),
-
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    Text('Alarm Status: ${enabled ? "ENABLED" : "DISABLED"}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text('State: $state', style: TextStyle(fontSize: 16, color: state == 'alarming' ? Colors.red : Colors.green)),
+                    Text(
+                      'Alarm Status: ${enabled ? "ENABLED" : "DISABLED"}',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'State: $state',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: _isAlarmState(state) ? Colors.red : Colors.green,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
-
             const SizedBox(height: 30),
-
             Wrap(
               alignment: WrapAlignment.center,
               spacing: 12,
