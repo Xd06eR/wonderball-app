@@ -1,30 +1,24 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:image/image.dart' as img;
 
 /// Dedicated service for E-ink display.
 class EinkService {
-  /// Converts asset image to 8-bit grayscale base64 for /api/display/update
+  /// Converts asset image to grayscale PNG bytes (base64) for /api/display/update.
   static Future<String> convertAssetToBase64(String assetPath) async {
     final byteData = await rootBundle.load(assetPath);
     final bytes = byteData.buffer.asUint8List();
 
-    var image = img.decodeImage(bytes)!;
-    image = img.copyResize(image, width: 400, height: 300);
-    image = img.grayscale(image);   // 8-bit grayscale
-
-    // Convert to raw grayscale bytes (0-255)
-    final buffer = Uint8List(image.width * image.height);
-    int index = 0;
-
-    for (int y = 0; y < image.height; y++) {
-      for (int x = 0; x < image.width; x++) {
-        final pixel = image.getPixel(x, y);
-        buffer[index++] = pixel.r.toInt();   // grayscale value
-      }
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) {
+      throw Exception('Failed to decode image: $assetPath');
     }
 
-    return base64Encode(buffer);
+    var image = img.copyResize(decoded, width: 400, height: 300);
+    image = img.grayscale(image);
+
+    // IMPORTANT: send encoded image bytes, not raw per-pixel buffer.
+    final pngBytes = img.encodePng(image, level: 0);
+    return base64Encode(pngBytes);
   }
 }
