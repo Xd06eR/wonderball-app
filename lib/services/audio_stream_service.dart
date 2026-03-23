@@ -1,13 +1,18 @@
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart';
 
-/// Simple wrapper for live microphone streaming from the robot.
+/// Live microphone streaming wrapper.
 class AudioStreamService {
   static final AudioPlayer _player = AudioPlayer();
   static bool _isPlaying = false;
 
   static Future<void> start(String streamUrl) async {
     if (_isPlaying) return;
-    await _player.play(UrlSource(streamUrl));
+
+    // Prepare stream URL first.
+    await _player.setUrl(streamUrl);
+
+    // For live stream, just play (no seek/position assumptions).
+    await _player.play();
     _isPlaying = true;
   }
 
@@ -17,4 +22,8 @@ class AudioStreamService {
   }
 
   static bool get isPlaying => _isPlaying;
+
+  static Future<void> dispose() async {
+    await _player.dispose();
+  }
 }

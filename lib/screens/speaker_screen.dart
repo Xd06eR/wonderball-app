@@ -50,8 +50,12 @@ class _SpeakerScreenState extends State<SpeakerScreen> {
 
   Future<void> _stopListening() async {
     if (!_isListening) return;
-    await AudioStreamService.stop();
-    if (mounted) setState(() => _isListening = false);
+    try {
+      await AudioStreamService.stop();
+      if (mounted) setState(() => _isListening = false);
+    } catch (e) {
+      if (mounted) UiHelpers.showError(context, 'Stop stream failed: $e');
+    }
   }
 
   Future<void> _speak(String text) async {
