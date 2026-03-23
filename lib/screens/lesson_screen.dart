@@ -42,7 +42,7 @@ class _LessonCategory {
   });
 }
 
-/// STEM Lessons screen (8-bit grayscale E-ink + pure API TTS)
+/// STEM Lessons screen (question first, then image near end of question TTS)
 class LessonScreen extends StatefulWidget {
   static const String _defaultIntroTts = '請專心聽書！要開始啦！';
 
@@ -167,6 +167,12 @@ class _LessonScreenState extends State<LessonScreen> {
     setState(() => _completedLessons.add(lesson.title));
   }
 
+  Duration _estimateTtsDuration(String text) {
+    final chars = text.runes.length;
+    final ms = (chars * 170).clamp(1200, 18000);
+    return Duration(milliseconds: ms);
+  }
+
   Future<void> _spinRobotCelebration() async {
     try {
       final res = await ApiService.move(
@@ -174,15 +180,12 @@ class _LessonScreenState extends State<LessonScreen> {
         rightSpeed: -180,
         durationMs: 3000,
       );
-
       if (!mounted) return;
       if (res.statusCode != 200) {
         UiHelpers.showError(context, 'Robot spin failed: ${res.statusCode}');
       }
     } catch (e) {
-      if (mounted) {
-        UiHelpers.showError(context, 'Robot spin error: $e');
-      }
+      if (mounted) UiHelpers.showError(context, 'Robot spin error: $e');
     }
   }
 
@@ -200,9 +203,7 @@ class _LessonScreenState extends State<LessonScreen> {
         UiHelpers.showError(context, 'Quiz start failed: ${response.statusCode}');
       }
     } catch (e) {
-      if (context.mounted) {
-        UiHelpers.showError(context, 'Quiz start error: $e');
-      }
+      if (context.mounted) UiHelpers.showError(context, 'Quiz start error: $e');
     }
   }
 
@@ -210,7 +211,7 @@ class _LessonScreenState extends State<LessonScreen> {
     try {
       await ApiService.stopQuiz();
     } catch (_) {
-      // Best-effort cleanup.
+      // best effort
     }
   }
 
@@ -223,21 +224,38 @@ class _LessonScreenState extends State<LessonScreen> {
       if (response.statusCode == 200) {
         UiHelpers.showSuccess(context, '✅ E-ink updated');
       } else {
-        UiHelpers.showError(context, 'E-ink failed');
+        UiHelpers.showError(context, 'E-ink failed: ${response.statusCode}');
       }
     } catch (e) {
-      if (context.mounted) {
-        UiHelpers.showError(context, '⚠️ E-ink error: $e');
-      }
+      if (context.mounted) UiHelpers.showError(context, '⚠️ E-ink error: $e');
     }
   }
 
-  Future<void> _speakLessonStartScript(_LessonItem lesson) async {
+  Future<void> _speakLessonFlowAndSwapImage({
+    required BuildContext context,
+    required _LessonItem lesson,
+  }) async {
+    final questionPrompt = '${lesson.question} 請選擇正確答案！';
+
+    final qDuration = _estimateTtsDuration(questionPrompt);
+    const swapLead = Duration(milliseconds: 900);
+    final delayBeforeSwap =
+        qDuration > swapLead ? qDuration - swapLead : const Duration(milliseconds: 200);
+
     await TTSService.speak(lesson.introTts, context: context);
     if (!mounted) return;
     await TTSService.speak(lesson.lessonText, context: context);
     if (!mounted) return;
-    await TTSService.speak('${lesson.question} 請選擇正確答案！', context: context);
+
+    final speakFuture = TTSService.speak(questionPrompt, context: context);
+
+    unawaited(() async {
+      await Future.delayed(delayBeforeSwap);
+      if (!mounted) return;
+      await _updateEInkDisplay(context, lesson.imageAssetPath);
+    }());
+
+    await speakFuture;
   }
 
   void _startLesson({required BuildContext context, required _LessonItem lesson}) {
@@ -267,6 +285,7 @@ class _LessonScreenState extends State<LessonScreen> {
                 try {
                   await _startBackendQuizSession(ctx, lesson);
                   await gestureService.connect();
+
                   gestureSubscription = gestureService.choices.listen((choice) {
                     if (!ctx.mounted || answered) return;
                     if (choice.optionIndex >= lesson.options.length) return;
@@ -281,6 +300,10 @@ class _LessonScreenState extends State<LessonScreen> {
                       UiHelpers.showSuccess(context, childMessage);
                     }
                   });
+
+                  // Start speaking flow: question on e-ink first (backend quiz),
+                  // then image near end of question speech.
+                  unawaited(_speakLessonFlowAndSwapImage(context: ctx, lesson: lesson));
                 } catch (e) {
                   if (ctx.mounted) {
                     setState(() => childMessage = 'Gesture stream unavailable: $e');
@@ -297,7 +320,7 @@ class _LessonScreenState extends State<LessonScreen> {
                 answered = true;
                 if (isCorrect) {
                   feedback = '啱啦！好叻！加10分！';
-                  unawaited(TTSService.speak('啱啦！好叻！加10分！', context: context));
+                  unawaited(TTSService.speak(feedback, context: context));
                   widget.onAddPoints(10);
                 } else {
                   feedback = '唔啱！正確答案係 ${lesson.options[lesson.correctIndex]}';
@@ -310,7 +333,6 @@ class _LessonScreenState extends State<LessonScreen> {
                 unawaited(_spinRobotCelebration());
               }
 
-              // Close on both correct and wrong answers after a short delay.
               Future.delayed(_autoCloseDelay, () {
                 if (!ctx.mounted) return;
                 if (Navigator.of(ctx).canPop()) Navigator.of(ctx).pop();
@@ -325,9 +347,11 @@ class _LessonScreenState extends State<LessonScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Image.asset(lesson.imageAssetPath,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, error, stackTrace) => const Text('Image load failed')),
+                      Image.asset(
+                        lesson.imageAssetPath,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Text('Image load failed'),
+                      ),
                       const SizedBox(height: 20),
                       Text(lesson.lessonText, style: const TextStyle(fontSize: 16, height: 1.5)),
                       const Divider(height: 40, thickness: 2),
@@ -387,19 +411,23 @@ class _LessonScreenState extends State<LessonScreen> {
                       ),
                       const SizedBox(height: 20),
                       if (feedback.isNotEmpty)
-                        Text(feedback,
-                            style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: selectedIndex == lesson.correctIndex ? Colors.green : Colors.red)),
+                        Text(
+                          feedback,
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: selectedIndex == lesson.correctIndex ? Colors.green : Colors.red,
+                          ),
+                        ),
                     ],
                   ),
                 ),
               ),
               actions: [
                 TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text('關閉', style: TextStyle(color: Colors.blueAccent))),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('關閉', style: TextStyle(color: Colors.blueAccent)),
+                ),
               ],
             );
           },
@@ -410,26 +438,20 @@ class _LessonScreenState extends State<LessonScreen> {
       await gestureService.dispose();
       await _stopBackendQuizSession();
     });
-
-    // Fire-and-forget guidance so dialog appears immediately.
-    unawaited(_speakLessonStartScript(lesson));
-    _updateEInkDisplay(context, lesson.imageAssetPath);
   }
 
   Widget _buildCategoryTile(BuildContext context, _LessonCategory category) {
     return ExpansionTile(
       leading: Icon(category.icon, color: category.color),
       title: Text(category.title, style: const TextStyle(fontSize: 20)),
-      children: category.lessons
-          .map((lesson) {
-            final completed = _isCompleted(lesson);
-            return LessonButton(
-              title: lesson.title,
-              isCompleted: completed,
-              onStart: completed ? null : () => _startLesson(context: context, lesson: lesson),
-            );
-          })
-          .toList(),
+      children: category.lessons.map((lesson) {
+        final completed = _isCompleted(lesson);
+        return LessonButton(
+          title: lesson.title,
+          isCompleted: completed,
+          onStart: completed ? null : () => _startLesson(context: context, lesson: lesson),
+        );
+      }).toList(),
     );
   }
 
