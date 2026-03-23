@@ -243,15 +243,15 @@ class _LessonScreenState extends State<LessonScreen> {
         qDuration > swapLead ? qDuration - swapLead : const Duration(milliseconds: 200);
 
     await TTSService.speak(lesson.introTts, context: context);
-    if (!mounted) return;
+    if (!context.mounted) return;
     await TTSService.speak(lesson.lessonText, context: context);
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     final speakFuture = TTSService.speak(questionPrompt, context: context);
 
     unawaited(() async {
       await Future.delayed(delayBeforeSwap);
-      if (!mounted) return;
+      if (!context.mounted) return;
       await _updateEInkDisplay(context, lesson.imageAssetPath);
     }());
 
@@ -301,8 +301,8 @@ class _LessonScreenState extends State<LessonScreen> {
                     }
                   });
 
-                  // Start speaking flow: question on e-ink first (backend quiz),
-                  // then image near end of question speech.
+                  // Start speaking flow: question on e-ink first (backend quiz), then image near end of question speech.
+                  if (!ctx.mounted) return;
                   unawaited(_speakLessonFlowAndSwapImage(context: ctx, lesson: lesson));
                 } catch (e) {
                   if (ctx.mounted) {
@@ -350,7 +350,7 @@ class _LessonScreenState extends State<LessonScreen> {
                       Image.asset(
                         lesson.imageAssetPath,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const Text('Image load failed'),
+                        errorBuilder: (_, _, _) => const Text('Image load failed'),
                       ),
                       const SizedBox(height: 20),
                       Text(lesson.lessonText, style: const TextStyle(fontSize: 16, height: 1.5)),

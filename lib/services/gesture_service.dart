@@ -16,7 +16,6 @@ class GestureChoice {
 
 /// Receives gesture events from backend WebSocket and maps them to A/B/C/D options.
 class GestureService {
-  // Aligned with Spherical_STEM_Robot education gesture labels.
   // Primary quiz path remains finger-count mapping: 1->A, 2->B, 3->C, 4->D.
   static const Map<String, int> _gestureAliasToOption = <String, int>{
     // Canonical labels from backend CV pipeline.
@@ -70,8 +69,7 @@ class GestureService {
       'events': ['gesture_detected'],
     }));
 
-    // Fallback/debug channel from REST to keep child-choice updates flowing
-    // even when WebSocket payloads are sparse.
+    // Fallback/debug channel from REST to keep child-choice updates flowing, even when WebSocket payloads are sparse.
     _startGesturePolling();
   }
 
