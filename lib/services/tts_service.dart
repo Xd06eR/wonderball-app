@@ -5,114 +5,63 @@ import '../utils/ui_helpers.dart';
 import 'api_service.dart';
 
 /// Robot speaker TTS service.
-///
-/// Primary path: backend Edge TTS endpoint (`/api/tts/speak`) using
-/// Hong Kong Cantonese voice.
-/// Fallback path: Google TTS bytes + `/api/audio/play-base64`.
+/// Primary: backend /api/tts/speak
+/// Fallback: Google TTS bytes -> /api/audio/play-base64
 class TTSService {
   static const String _hkVoice = 'zh-HK-HiuGaaiNeural';
   static Future<void> _queue = Future<void>.value();
 
-  static Future<http.Response> _sendRobotAudio(List<int> mp3Bytes) {
-    return http
-        .post(
-          Uri.parse('${ApiService.baseUrl}/api/audio/play-base64'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'audio_data': base64Encode(mp3Bytes),
-            'format': 'mp3',
-          }),
-        )
-        .timeout(const Duration(seconds: 10));
-  }
-
-  static Future<bool> _speakWithBackend(String text) async {
-    final response = await ApiService.speakTts(text: text, voice: _hkVoice);
-    return response.statusCode == 200;
-  }
-
-  static Future<void> _waitForPlaybackCompletion({
-    Duration maxWait = const Duration(seconds: 20),
-  }) async {
-    final deadline = DateTime.now().add(maxWait);
-    var seenPlaying = false;
-
-    while (DateTime.now().isBefore(deadline)) {
-      try {
-        final status = await ApiService.getAudioPlaybackStatus();
-        final isPlaying = status['is_playing'] == true;
-
-        if (isPlaying) {
-          seenPlaying = true;
-        }
-
-        if (seenPlaying && !isPlaying) {
-          return;
-        }
-      } catch (_) {
-        // Continue polling until timeout; some deployments may not expose status.
-      }
-
-      await Future.delayed(const Duration(milliseconds: 250));
-    }
-  }
-
-  static Future<void> _speakInternal(String text, {BuildContext? context}) async {
-    final uiContext = context;
-    if (text.trim().isEmpty) return;
-
-    try {
-      // Preferred: backend Edge TTS with explicit HK voice.
-      final backendOk = await _speakWithBackend(text);
-      if (uiContext != null && !uiContext.mounted) return;
-      if (backendOk) {
-        await _waitForPlaybackCompletion();
-        debugPrint('Robot spoke (Edge TTS, $_hkVoice): $text');
-        return;
-      }
-
-      // Fallback: Google Translate TTS with Hong Kong Cantonese.
-      final uri = Uri.parse(
-        'https://translate.google.com/translate_tts'
-        '?ie=UTF-8&tl=zh-HK&client=tw-ob&q=${Uri.encodeComponent(text)}',
-      );
-
-      final response = await http.get(uri).timeout(const Duration(seconds: 8));
-      if (uiContext != null && !uiContext.mounted) return;
-
-      if (response.statusCode != 200) {
-        _showError('Google TTS failed: ${response.statusCode}', uiContext);
-        return;
-      }
-
-      final robotResponse = await _sendRobotAudio(response.bodyBytes);
-      if (uiContext != null && !uiContext.mounted) return;
-
-      if (robotResponse.statusCode == 200) {
-        await _waitForPlaybackCompletion();
-        debugPrint('Robot spoke (fallback zh-HK): $text');
-      } else {
-        _showError('Robot play failed: ${robotResponse.statusCode}', uiContext);
-      }
-    } catch (e) {
-      if (uiContext != null && !uiContext.mounted) return;
-      _showError('Speak error: $e', uiContext);
-    }
-  }
-
-  /// Speaks any text on the robot using Hong Kong Cantonese.
-  static Future<void> speak(String text, {BuildContext? context}) async {
-    _queue = _queue.then((_) async {
-      if (context != null && !context.mounted) return;
-      await _speakInternal(text, context: context);
-    });
+  // Removed async to prevent the closure from capturing context across an async gap
+  static Future<void> speak(String text, {BuildContext? context}) {
+    _queue = _queue.then((_) => _speakInternal(text));
     return _queue;
   }
 
-  static void _showError(String message, BuildContext? context) {
-    debugPrint('TTS Error: $message');
-    if (context != null && context.mounted) {
-      UiHelpers.showError(context, message);
+  static Future<void> _speakInternal(String text, {BuildContext? context}) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+
+    try {
+      // 1) Preferred: backend TTS
+      final backendRes = await ApiService.speakTts(text: trimmed, voice: _hkVoice);
+      if (backendRes.statusCode == 200) {
+        debugPrint('Robot spoke (backend TTS): $trimmed');
+        return;
+      }
+
+      // 2) Fallback: Google TTS (zh-HK) -> robot play-base64
+      final googleUri = Uri.parse(
+        'https://translate.google.com/translate_tts'
+        '?ie=UTF-8&tl=zh-HK&client=tw-ob&q=${Uri.encodeComponent(trimmed)}',
+      );
+      final googleRes = await http.get(googleUri).timeout(const Duration(seconds: 8));
+      if (googleRes.statusCode != 200) {
+        if (context != null && context.mounted) {
+          UiHelpers.showError(context, 'Google TTS failed: ${googleRes.statusCode}');
+        }
+        return;
+      }
+
+      final robotRes = await http
+          .post(
+            Uri.parse('${ApiService.baseUrl}/api/audio/play-base64'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'audio_data': base64Encode(googleRes.bodyBytes),
+              'format': 'mp3',
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (robotRes.statusCode != 200) {
+        if (context != null && context.mounted) {
+          UiHelpers.showError(context, 'Robot play failed: ${robotRes.statusCode}');
+        }
+      }
+    } catch (e) {
+      if (context != null && context.mounted) {
+        UiHelpers.showError(context, 'Speak error: $e');
+      }
     }
   }
 }
