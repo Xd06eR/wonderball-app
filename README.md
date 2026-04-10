@@ -1,8 +1,8 @@
 # WonderBall Parent App (Flutter)
 
-WonderBall is a parent-facing mobile app for a spherical home robot. It supports remote interaction, child monitoring, and STEM learning activities.
+WonderBall is a parent-facing Flutter app for a spherical home robot. It supports remote robot interaction, child monitoring, and STEM learning activities.
 
-This repository contains a school-project prototype built with Flutter.
+This repository contains a school-project prototype for the mobile app.
 
 Backend robotics services are implemented in a separate repository:
 - https://github.com/AnaOnTram/Spherical_STEM_Robot
@@ -13,69 +13,84 @@ Backend robotics services are implemented in a separate repository:
 - The backend repository is maintained by a teammate and integrated here as an external dependency.
 - Several workflows are intentionally simplified for coursework demonstrations and testing.
 
-## Project Vision
-
-The project is designed for busy parents who are away from home but still want meaningful interaction with their child during breaks.
-
-Core interaction model:
-- A parent connects to WonderBall remotely.
-- The child interacts with the robot physically.
-- The parent supervises and confirms learning outcomes through the app.
-
-Current prototype lesson workflow:
-- Child gestures are used to select lesson options.
-- The parent confirms the final answer in the app.
-- Correct, parent-confirmed answers award points and trigger a robot spin celebration.
-- Quiz voice is configured to Hong Kong Cantonese (Edge TTS).
-
 ## Scope of This Repository
 
-This repository contains only the Flutter mobile app.
+This repository contains only the Flutter app.
 
-Backend responsibilities (robot control, detection, event streaming, and LLM/audio pipelines) are implemented in the backend repository above.
+Backend responsibilities (robot control, camera/gesture processing, detection, and TTS/audio pipelines) are implemented in the backend repository above.
 
 ## Current App Features
 
-- Robot connection status check (`/api/status`)
-- Movement control (`/api/movement/move`, `/api/movement/stop`)
-- Camera snapshot preview (`/api/stream/snapshot`)
-- Audio playback to robot (`/api/audio/play-base64`, `/api/audio/stop`)
-- Server-side TTS playback (`/api/tts/speak`, HK default voice: `zh-HK-HiuGaaiNeural`)
-- Alarm monitor controls (`/api/alarm/status`, `enable`, `disable`, `acknowledge`)
-- In-app alarm trigger notice for `confirmed` and `alarming` states
-- STEM lesson flow including:
-  - Lesson image push to e-ink display (`/api/display/update`)
-  - Child gesture event intake via WebSocket (`/ws`, `gesture_detected`)
-  - Gesture fallback polling (`/api/gesture/status`) for robustness
-  - Robust gesture normalization for labels (for example: `victory`, `open palm`, `option_a`) and duplicate-event filtering
-  - Backend quiz session lifecycle (`/api/quiz/start`, `/api/quiz/stop`)
-  - Lesson dialog shows child-detected option and raw gesture payload for debugging transparency
-  - Parent-confirmed answer submission
-  - Score update and completion lock after a correct answer
-  - Robot spin reward after a correct answer
+- Robot connection health check via `/api/status` (home app bar indicator, auto-refresh every 10s)
+- Movement control via:
+  - `/api/movement/move`
+  - `/api/movement/stop`
+- Camera preview via snapshot polling (`/api/stream/snapshot`, every 100ms)
+- Audio features:
+  - Live mic listen stream from robot (`/api/stream/audio`)
+  - Stop robot audio (`/api/audio/stop`)
+  - Backend TTS (`/api/tts/speak`, default voice `zh-HK-HiuGaaiNeural`)
+  - TTS fallback path: Google TTS -> `/api/audio/play-base64`
+  - Playback status endpoint available in service layer: `/api/audio/playback-status`
+- Cry/sound alarm controls:
+  - `/api/alarm/status` (polled every 2s)
+  - `/api/alarm/enable`
+  - `/api/alarm/disable`
+  - `/api/alarm/acknowledge`
+  - In-app alarm trigger notice (sound + dialog) when state changes to `confirmed` or `alarming`
+- STEM lesson flow:
+  - Lesson quiz session start/stop via `/api/quiz/start` and `/api/quiz/stop`
+  - Gesture intake from WebSocket (`/ws`, `gesture_detected` subscription)
+  - REST fallback polling for gesture robustness (`/api/gesture/status`, every 900ms)
+  - Gesture normalization and duplicate-event filtering in app service layer
+  - Child gesture auto-selects option when detected, parent can confirm/override in dialog
+  - Lesson image push to e-ink display (`/api/display/update`) with local grayscale conversion (400x300 PNG base64)
+  - Correct answer awards +10 points and triggers robot spin celebration (`/api/movement/move`)
+  - Completed lesson is locked for current app runtime session
 
-## App Structure
+## App Screens
+
+Bottom navigation pages currently implemented:
+- Move
+- Camera
+- Speak
+- Detect
+- Lesson
+- Profile
+
+## App Screenshots
+
+Screenshots below are from offline demo mode (robot disconnected).
+
+Camera and Detection screens are not included in this screenshot set.
+
+| Lesson | Movement | Speaker | Profile |
+|---|---|---|---|
+| ![Lesson screen](docs/images/readme/lesson-screen.jpg) | ![Movement screen](docs/images/readme/movement-screen.jpg) | ![Speaker screen](docs/images/readme/speaker-screen.jpg) | ![Profile screen](docs/images/readme/profile-screen.jpg) |
+
+## Project Structure
 
 `lib/`
-- `main.dart`: app shell, bottom navigation, global points state
-- `screens/`: feature UI screens (`movement`, `camera`, `speaker`, `detection`, `lesson`, `profile`)
-- `services/`: API, TTS, audio stream, e-ink conversion, gesture WebSocket
+- `main.dart`: app shell, bottom navigation, connection check timer, global points state
+- `core/constants.dart`: base URL constant (`piBaseUrl`)
+- `screens/`: feature UIs (`movement`, `camera`, `speaker`, `detection`, `lesson`, `profile`)
+- `services/`: API, TTS fallback logic, audio stream playback, e-ink conversion, gesture stream/polling
 - `models/`: typed data models (for example, alarm status)
-- `widgets/`: reusable controls (`ControlButton`, `LessonButton`)
-- `utils/`: shared UI helpers (snackbar feedback)
+- `widgets/`: reusable UI controls (`ControlButton`, `LessonButton`)
+- `utils/`: shared UI feedback helper (success/error SnackBars)
 
-## Backend Integration Notes
+## API Integration Notes
 
 Primary API reference:
 - https://github.com/AnaOnTram/Spherical_STEM_Robot/blob/main/API.md
 
-Important contract details used by this app:
+Contract details currently used by this app:
 - REST base URL: `http://<raspberry-pi-ip>:8000`
 - WebSocket URL: `ws://<raspberry-pi-ip>:8000/ws`
-- Gesture event: `gesture_detected`
-- Gesture answer mapping: `1->A`, `2->B`, `3->C`, `4->D`
-- Quiz voice options include `zh-HK-HiuGaaiNeural` and `zh-HK-WanLungNeural`
-- Alarm states: `idle`, `detecting`, `confirmed`, `alarming`, `cooldown`, `disabled`
+- Gesture event type: `gesture_detected`
+- Finger-count mapping in app: `1->A`, `2->B`, `3->C`, `4->D`
+- Quiz voice currently sent by app: `zh-HK-HiuGaaiNeural`
+- Alarm states handled by app: `confirmed`, `alarming` (alert), plus status display for other backend states
 
 ## Setup (Flutter App)
 
@@ -101,7 +116,7 @@ flutter run
 
 ## Setup (Backend Robot Service)
 
-Follow the backend quick start guide:
+Follow backend quick start:
 - https://github.com/AnaOnTram/Spherical_STEM_Robot#quick-start
 
 Backend ownership note:
@@ -111,16 +126,17 @@ Backend ownership note:
 
 From `pubspec.yaml`:
 - `http`: REST API calls
-- `audioplayers`: live audio stream playback
+- `just_audio`: live robot audio stream playback
 - `image`: image processing for e-ink payload generation
 - `web_socket_channel`: real-time gesture event subscription
 
-## Prototype Limitations
+## Current Prototype Limitations
 
-- Lesson progress is currently in memory and resets when the app restarts.
-- Gesture recognition quality still depends on camera angle, lighting, and hand visibility.
-- TTS uses backend Edge TTS first; if unavailable, app falls back to Google TTS + `/api/audio/play-base64`.
-- Alarm notifications are currently in-app only (alert sound + dialog), not OS push notifications.
+- Lesson completion and total points are in-memory only and reset when app restarts.
+- User profile data is static placeholder data in the app shell.
+- App-side notifications are in-app dialogs/snackbars only; no OS push notifications.
+- Camera/gesture/detection reliability still depends on backend availability, network quality, and physical environment (angle, lighting, hand visibility).
+- Several backend endpoints are wrapped in service code but not all are currently surfaced with dedicated UI states.
 
 ## Acknowledgements
 
