@@ -60,13 +60,15 @@ Bottom navigation pages currently implemented:
 
 ## App Screenshots
 
-Screenshots below are from offline demo mode (robot disconnected).
+Screenshots below are from online mode (robot connected).
 
-Camera and Detection screens are not included in this screenshot set.
+| Move | Camera | Speak |
+|---|---|---|
+| ![Movement screen](docs/images/readme/movement-screen.jpg) | ![Camera screen](docs/images/readme/camera-screen.jpg) | ![Speaker screen](docs/images/readme/speaker-screen.jpg) |
 
-| Lesson | Movement | Speaker | Profile |
-|---|---|---|---|
-| ![Lesson screen](docs/images/readme/lesson-screen.jpg) | ![Movement screen](docs/images/readme/movement-screen.jpg) | ![Speaker screen](docs/images/readme/speaker-screen.jpg) | ![Profile screen](docs/images/readme/profile-screen.jpg) |
+| Detect | Lesson | Profile |
+|---|---|---|
+| ![Detection screen](docs/images/readme/detection-screen.jpg) | ![Lesson screen](docs/images/readme/lesson-screen.jpg) | ![Profile screen](docs/images/readme/profile-screen.jpg) |
 
 ## Project Structure
 
