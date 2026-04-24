@@ -5,7 +5,7 @@ WonderBall is a parent-facing Flutter app for a spherical home robot. It support
 This repository contains a school-project prototype for the mobile app.
 
 Backend robotics services are implemented in a separate repository:
-- https://github.com/AnaOnTram/Spherical_STEM_Robot
+- [AnaOnTram/Spherical_STEM_Robot](https://github.com/AnaOnTram/Spherical_STEM_Robot)
 
 ## Academic Prototype Notice
 
@@ -84,7 +84,7 @@ Screenshots below are from online mode (robot connected).
 ## API Integration Notes
 
 Primary API reference:
-- https://github.com/AnaOnTram/Spherical_STEM_Robot/blob/main/API.md
+- [Backend API documentation](https://github.com/AnaOnTram/Spherical_STEM_Robot/blob/main/API.md)
 
 Contract details currently used by this app:
 - REST base URL: `http://<raspberry-pi-ip>:8000`
@@ -118,8 +118,7 @@ flutter run
 
 ## Setup (Backend Robot Service)
 
-Follow backend quick start:
-- https://github.com/AnaOnTram/Spherical_STEM_Robot#quick-start
+Follow the [backend quick start guide](https://github.com/AnaOnTram/Spherical_STEM_Robot#quick-start).
 
 Backend ownership note:
 - The backend service is developed in a separate teammate-managed repository.
@@ -142,7 +141,6 @@ From `pubspec.yaml`:
 
 ## Acknowledgements
 
-- WonderBall backend contributors:
-  https://github.com/AnaOnTram/Spherical_STEM_Robot
+- WonderBall backend contributors: [AnaOnTram/Spherical_STEM_Robot](https://github.com/AnaOnTram/Spherical_STEM_Robot)
 - This app repository provides parent mobile control and interaction for the WonderBall ecosystem.
 - School project team collaboration made this prototype possible.
